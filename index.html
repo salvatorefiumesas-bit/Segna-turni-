@@ -231,6 +231,7 @@
         <button class="btn btn-ghost" id="clearBtn">🗑 Svuota mese</button>
         <button class="btn btn-primary" id="exportPdfBtn">📄 Esporta PDF</button>
       </div>
+      <button class="btn btn-primary" id="calBtn" style="width:100%;margin-top:10px;">📅 Aggiungi al calendario (avviso la sera prima)</button>
       <div class="actions" style="margin-top:10px;">
         <button class="btn btn-ghost" id="backupBtn">⬇ Backup dati</button>
         <button class="btn btn-ghost" id="restoreBtn">⬆ Ripristina</button>
@@ -524,6 +525,46 @@
       });
 
       doc.save(`Turni_${currentEmployee.replace(/\s+/g, '_')}_${MONTHS[viewMonth]}_${viewYear}.pdf`);
+    });
+
+    // --- Aggiungi al calendario: un evento per ogni turno del mese, con avviso alle 20:00 della sera prima ---
+    const NOMI_TURNO = { M: 'Mattina', N: 'Notte', F: 'Festa', R: 'Riposo' };
+    const ORA_AVVISO = 20; // ora dell'avviso, la sera prima
+    $('calBtn').addEventListener('click', () => {
+      if (!currentEmployee) return;
+      const p = n => String(n).padStart(2, '0');
+      const ymd = d => '' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+      const n = new Date();
+      const stamp = n.getUTCFullYear() + p(n.getUTCMonth() + 1) + p(n.getUTCDate()) + 'T' + p(n.getUTCHours()) + p(n.getUTCMinutes()) + p(n.getUTCSeconds()) + 'Z';
+      const idNome = currentEmployee.replace(/[^A-Za-z0-9]/g, '');
+      const righe = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Segna turni//IT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+      let quanti = 0;
+      currentShifts.forEach((s, i) => {
+        if (!s) return;
+        const g = new Date(viewYear, viewMonth, i + 1), dopo = new Date(viewYear, viewMonth, i + 2);
+        righe.push('BEGIN:VEVENT',
+          'UID:turno-' + idNome + '-' + ymd(g) + '@segna-turni',
+          'DTSTAMP:' + stamp,
+          'DTSTART;VALUE=DATE:' + ymd(g),
+          'DTEND;VALUE=DATE:' + ymd(dopo),
+          'SUMMARY:Turno: ' + NOMI_TURNO[s],
+          'TRANSP:TRANSPARENT',
+          'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Domani: ' + NOMI_TURNO[s],
+          'TRIGGER:-PT' + (24 - ORA_AVVISO) + 'H', 'END:VALARM',
+          'END:VEVENT');
+        quanti++;
+      });
+      if (!quanti) { toast('Nessun turno in questo mese'); return; }
+      righe.push('END:VCALENDAR');
+      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1);
+      const url = URL.createObjectURL(new Blob([righe.join('\r\n') + '\r\n'], { type: 'text/calendar;charset=utf-8' }));
+      const a = document.createElement('a');
+      a.href = url;
+      if (!ios) a.download = `Turni_${currentEmployee.replace(/\s+/g, '_')}_${MONTHS[viewMonth]}_${viewYear}.ics`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 60000);
+      toast(ios ? 'Tocca “Aggiungi tutti” nel Calendario' : 'Apri il file scaricato con il Calendario');
     });
 
     // --- Toast ---

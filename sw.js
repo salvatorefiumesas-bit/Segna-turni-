@@ -1,6 +1,6 @@
 // Service worker: permette all'app di funzionare anche offline.
 // Quando modifichi i file, cambia il numero di versione qui sotto.
-const CACHE = 'turni-v1';
+const CACHE = 'turni-v2';
 const JSPDF = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
 const LOCAL = [
   './',
